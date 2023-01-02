@@ -1,7 +1,7 @@
 {
 	"id": "vc-wizard-plugin",
 	"name": "VC Wizard",
-	"version": "0.5.0",
+	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
 	"description": "A plugin that can summarize VC notes using GPT-3 and automatically push them to Affinity",
 	"author": "Omar Hedeya",

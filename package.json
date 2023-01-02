@@ -1,6 +1,6 @@
 {
 	"name": "vc-wizard-plugin",
-	"version": "0.5.0",
+	"version": "1.0.0",
 	"description": "A plugin that can summarize VC notes and automatically push them to Affinity",
 	"main": "main.js",
 	"scripts": {
