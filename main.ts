@@ -1,4 +1,6 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, Menu, MenuItem, MarkdownFileInfo} from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, Menu, MenuItem, MarkdownFileInfo, TFile} from 'obsidian';
+import { WizardView, WIZARD_VIEW } from 'view';
+import * as fs from 'fs';
 
 let pythonPath = ''
 let scriptPath_AI = ''
@@ -34,6 +36,8 @@ async function summarize_selected_startup_text(editor: Editor, view: MarkdownVie
     editor.replaceSelection(replacement)
 
 }
+
+
 
 async function launch_python(pythonPath: string, scriptPath: string, scriptName: string, args: any){
     /**
@@ -264,6 +268,17 @@ function is_summarizable(file_content: string){
 
 }
 
+function save_json(file_path: string, content: string []){
+    const jsonString = JSON.stringify(content)
+    fs.writeFile(file_path, jsonString, (err) => {
+        if (err) {
+          console.error(err);
+          return;
+        }
+        console.log('File has been created');
+      });
+}
+
 interface ButlerSettings {
 	vaultPath: string;
     affinityKey: string;
@@ -288,14 +303,25 @@ const DEFAULT_SETTINGS: ButlerSettings = {
 
 export default class VCWizardPlugin extends Plugin{
     settings: ButlerSettings;
+    status: HTMLElement;
     async onload() {
         await this.loadSettings();
+        this.status = this.addStatusBarItem();
         
+        this.registerView(WIZARD_VIEW, (leaf)=> new WizardView(leaf))
+        this.app.workspace.onLayoutReady(() => {
+			this.activateView();
+			this.updateView([]);
+		});
 
         this.addRibbonIcon('sun', 'Omar Plugin', create_notice)
             
         this.addCommand({id: 'summarize-startup-command', name: 'Summarize This Startup', editorCallback: (editor, view) => summarize_selected_startup_text(editor, view)})
+        
+        this.addCommand({id: 'index-vault', name: 'Index Vault', callback: () => this.index_vault()})
 
+        this.addCommand({id: 'find-similar-ideas', name: 'Find Similar Ideas', editorCallback: (editor, view) => this.find_similar_ideas(editor, view)})
+    
         this.addCommand({id: 'summarize-all-vc-command', name: 'Summarize All VC Notes', callback: () => this.summarize_all_vc()})
 
         this.addCommand({id: 'affinity-vc', name: 'Push VCs to Affinity', callback: () => push_vcs_to_affinity()})
@@ -307,7 +333,28 @@ export default class VCWizardPlugin extends Plugin{
     }
 
     onunload() {
+        this.app.workspace.detachLeavesOfType(WIZARD_VIEW)
 
+    }
+
+    async activateView() {
+		this.app.workspace.detachLeavesOfType(WIZARD_VIEW);
+		
+		await this.app.workspace.getRightLeaf(false).setViewState({
+		  type: WIZARD_VIEW,
+		  active: true,
+		});
+	
+		this.app.workspace.revealLeaf(
+		  this.app.workspace.getLeavesOfType(WIZARD_VIEW)[0]
+		);
+	}
+    async updateView(results: any) {
+        const view = this.app.workspace.getLeavesOfType(WIZARD_VIEW)[0]?.view;
+                    if (view instanceof WizardView) {
+                        view.update(results)
+                    }
+                    
     }
 
     async loadSettings(){
@@ -362,6 +409,115 @@ export default class VCWizardPlugin extends Plugin{
         //vault.
 
         
+
+    }
+    async find_similar_ideas(editor: Editor, view: MarkdownView|MarkdownFileInfo){
+        const sel = editor.getSelection()
+        new Notice("Search in progres...")
+        let scriptPath = scriptPath_AI
+        const scriptName = 'similar_ideas.py'
+        var args = [sel, openaiAPIKey, this.settings.vaultPath]
+        console.log(args)
+        console.log(pythonPath)
+        console.log(scriptPath),
+        console.log(scriptName)
+        const similar_ideas = await launch_python(pythonPath, scriptPath, scriptName, args) as string []        
+        console.log(similar_ideas)
+        let search_results = await this.extract_title_and_path(similar_ideas)
+        console.log('Search results:\n')
+        console.log(search_results)
+        this.updateView(search_results)
+    
+    
+    }
+    async index_vault(){
+        let files = this.app.vault.getMarkdownFiles()
+        let scriptPath = scriptPath_AI
+        const scriptName = 'index_vault.py'
+        const plugin_path = scriptPath_AI
+        let file_paths = []
+        for(let file of files){
+            if (file.path.includes('Second Brain') || file.path.includes('Readwise')){  //(!file.path.includes('Resources') && !file.path.includes('Resources')){
+                file_paths.push(file.path)
+            }
+        }
+        const json_path = plugin_path + '/' + 'file_paths.json'
+        save_json(json_path, file_paths)
+ 
+        
+        var args = [json_path, openaiAPIKey, plugin_path]
+
+        //console.log(file_paths)
+        /*const {spawn} = require("child_process")        
+        const python = spawn(pythonPath, [scriptPath + '/' + scriptName ])
+        const buffers: any[] = [];
+        //When python is sending data
+        python.stdout.on('data', (chunk: any) => buffers.push(chunk))
+        //when python stops sending data
+        python.stdout.on('end', () => {
+            JSON.parse(Buffer.concat(buffers))
+            console.log(buffers)
+        });
+
+        python.stdin.write(JSON.stringify(file_paths));
+        python.stdin.end()*/
+
+        //let results = await launch_python(pythonPath, scriptPath, scriptName, args)
+        //console.log(results)
+    }
+    async extract_title_and_path(results: string[]){
+        
+        //console.log(all_files)
+        let counter = 0
+        let search_results: any = {} //{'sentences': [], 'source_name': [], 'source_path': []}
+        let current_filename = this.app.workspace.getActiveFile()?.basename
+        console.log(`current filename: ${current_filename}`)
+        for (let result of results){
+          if (counter % 3 == 0 && counter!= 0)
+          {
+            let sentence = '\"' + results.at(counter) + '\"'
+            let source = results.at(counter+2)
+            source = source?.split(':')[1].trim()
+            
+            console.log(`counter: ${counter}, This source: ${source}`)
+            
+            if(source == current_filename){
+                //Do not add results from the current file
+                counter = counter + 1
+                continue
+            }
+            let source_file = await this.get_path_by_name(source)
+            console.log(source_file)
+            if (source_file != null && source != null)
+            {
+                let obsidian_path = 'obsidian://advanced-uri?vault=' //open - advanced-uri
+                obsidian_path = obsidian_path + this.app.vault.getName() + '&filepath=' //file - filepath
+                //let source_path = source_file.path //this.app.vault.getResourcePath(source_file)
+                obsidian_path = obsidian_path + source_file.path
+                console.log(`my source path: ${obsidian_path}`)
+                search_results[source] = {'source_path':obsidian_path, 'text': sentence} 
+
+            }
+
+
+            
+
+          }
+    
+          counter = counter + 1
+        }
+        return search_results
+    }
+    async get_path_by_name(source: string|undefined){
+        let all_files = this.app.vault.getMarkdownFiles()
+        for (let file of all_files){
+            let filename = file.basename
+            if (filename == source){
+                return file
+            }
+        }
+        return null
+
 
     }
 }
