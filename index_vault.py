@@ -2,7 +2,7 @@ from utils import load_dataset
 from tqdm import tqdm
 import sys 
 import json
-from utils import add_highlight, encode_query, get_tokens, load_bm25_index, save_json
+from utils import add_highlight, encode_query, get_tokens, load_bm25_index, save_json, remove_old_note, fast_find_document_by_name
 from jina import Document, DocumentArray
 n_dim = 1536  
 ef_search = 50
@@ -21,13 +21,15 @@ data_path = plugin_path + '/vault_index/all_notes/'
 bm25_index_filepath = plugin_path + '/BM25/bm25_index.json'
 backup_path = plugin_path + '/backup'
 
-json_path = sys.argv[1]  
+#--------------
+json_path = sys.argv[1]
 key =  sys.argv[2]
+#------------------
 
 da = load_dataset(data_path, metric='cosine', n_dim=n_dim, max_connection=max_connection, ef_search=ef_search)
 
-bm25_index = load_bm25_index(bm25_index_filepath)
 
+bm25_index = load_bm25_index(bm25_index_filepath)
 
 
 def average_chunks_embedding(total_note: Document, factor:int):
@@ -88,20 +90,42 @@ def get_highlight_with_embedded_notes(openai_key, highlight, notes_list, n_dim=4
 
 def index_vault(files: dict):
     print("--Embedding Files--")
+    counter = 0
     for file_name, value in tqdm(files.items()): #tqdm(files.items())
         file = value['full_path']
         is_modified = value['change_type']
-        '''if is_modified == "D":
+        if is_modified == "deleted":
             #If target is just to delete a note from knowledge base
-            note_name = extract_note_title(file)
+            note_name = file_name #extract_note_title(file)
             note = Document(text=note_name)
-            print(f"Deleted file: {note.text}") 
-            remove_old_note(da, note)
-            #remove entity from index if it exists
-            bm25_index.pop(note.text)
-            #commit_file(file)
-            continue'''
+
+            try: 
+
+                #remove entity from index if it exists
+                bm25_index.pop(note.text)
+                remove_old_note(da, note)
+                print(f"Deleted file: {note.text}")
+            except Exception as e:
+                print(f'{file_name} was not indexed to be deleted')
+                print(f'Full path: ${file}')
+                print(e)
+
             
+            continue
+        
+        if is_modified == 'new':
+            # If the document already exists and was not modified, do not index it again
+            
+            #old_note, counter = fast_find_document_by_name(da, file_name)
+            
+            try:
+                old_note = bm25_index[file_name]
+                if old_note:
+                    print(f'{file_name}: already indexed and has not been changed since')
+                    continue
+            except KeyError:
+                print(f'{file_name}: seems to be new')
+
         try:
             notes_list, highlight, highlight_readwise = add_highlight(file)
         except Exception as e:
@@ -121,14 +145,24 @@ def index_vault(files: dict):
             note_name = embedded_note.text
             bm25_index[note_name] = {'id': embedded_note.id,'tokens': tokens}
 
-        '''if is_modified == 'M':
+        #if is_modified == 'modified':
             #If this is just a modified note, remove old one from database
-            remove_old_note(da, embedded_note)'''
+            #remove_old_note(da, embedded_note)
 
         
         print(f"Encoded file: {embedded_note.text}")
         with da:
+            #Always check that there is no duplicate in database
+            if da and len(da) > 0:
+                remove_old_note(da, embedded_note)
             da.append(embedded_note)
+        
+        if counter % 20 == 0 and counter!= 0:
+            #checkpoint reached
+            save_json(bm25_index_filepath, bm25_index)
+        
+        counter+=1
+        
     
     if files:
         print('Some changes happened in the vault since last index')
@@ -143,5 +177,43 @@ files = []
 with open(json_path, 'r') as f:
     files = json.load(f)
 
-
 index_vault(files)
+
+'''print('Documents length: ' + str(len(da)))
+unique_notes = set(da.texts)
+all_notes = da.texts
+print('Number of non-unique documents: ' + str(len(all_notes) - len(unique_notes)))'''
+
+'''duplicates = {}
+for note in unique_notes:
+    duplicates[note] = []
+
+for document in da:
+    if document.text in unique_notes:
+        duplicates[document.text].append(document.id)
+
+multiple = {}
+for duplicate_note, ids in duplicates.items():
+    if len(ids) > 1:
+        multiple[duplicate_note] = ids
+
+print(multiple)
+with open('hola.json', 'w') as f:
+    json.dump(multiple, f)'''
+
+# Delete duplicates
+'''with open('/Users/omar/Library/Mobile Documents/iCloud~md~obsidian/Documents/Roaming Thoughts/.obsidian/plugins/vc_wizard/hola.json', 'r') as f:
+    duplicates = json.load(f)
+    print(type(duplicates))
+    print(len(duplicates))
+    notes = dict(duplicates).keys()
+    print(len(notes))
+    for duplicate, ids in dict(duplicates).items():
+        print(f'Removing: {duplicate}')
+        remove_old_note(da, Document(text=duplicate))'''
+
+
+
+
+
+

@@ -273,7 +273,7 @@ function save_json(file_path: string, content: any){
     const jsonString = JSON.stringify(content)
     fs.writeFile(file_path, jsonString, (err) => {
         if (err) {
-          console.error(err);
+          console.error(`Error saving the file: ${err}`);
           return;
         }
         console.log('File has been created');
@@ -353,7 +353,6 @@ export default class VCWizardPlugin extends Plugin{
         this.registerEvent(this.app.vault.on('modify', (file) => this.register_file_change(file, FileType.modified)))
 
         this.registerEvent(this.app.vault.on('delete', (file) => this.register_file_change(file, FileType.deleted)))
-
         this.addRibbonIcon('sun', 'Omar Plugin', create_notice)
             
         this.addCommand({id: 'summarize-startup-command', name: 'Summarize This Startup', editorCallback: (editor, view) => summarize_selected_startup_text(editor, view)})
@@ -478,24 +477,28 @@ export default class VCWizardPlugin extends Plugin{
         const scriptName = 'index_vault.py'
         const plugin_path = scriptPath_AI
         let base_name = file.name.split('.')[0]
-        if (type = FileType.modified){
+        let file_path = this.settings.vaultPath + file.path
+        let storage_path = plugin_path + '/modified_paths.json'
+        if (type == FileType.modified){
             
             new Notice(`${base_name} has been modified`)
-            let scriptPath = scriptPath_AI
-            const scriptName = 'index_vault.py'
-            const plugin_path = scriptPath_AI
-            let file_path = this.settings.vaultPath + file.path
-            //new Notice(`${file_path}`)
-            let storage_path = plugin_path + '/modified_paths.json'
-            //let modified_path = {base_name: {'change_type': FileType.modified, 'full_path': file_path}  }
-            //console.log(modified_path)
-            //const jsonData = JSON.stringify(modified_path)
             let value = {'change_type': FileType.modified, 'full_path': file_path} 
             append_to_json(storage_path, base_name, value)
         }
         else if (type == FileType.deleted){
 
             new Notice(`${base_name} has been deleted`)
+            let value = {'change_type': FileType.deleted, 'full_path': file_path} 
+            append_to_json(storage_path, base_name, value)
+
+        }
+        //todo no need to track new files since they only count when modified anyways?
+        //todo could be useful only, if I make sure not to overwrite 'modified_paths' by modified if new already exists. Then use that to avoid useless search if a new file exist already in our indexed database
+        //todo if I decided for yes, add an eventlistent in onload
+        else if (type == FileType.new){
+            new Notice(`${base_name} has been created`)
+            let value = {'change_type': FileType.new, 'full_path': file_path}
+            append_to_json(storage_path, base_name, value)
 
         }
 
@@ -549,10 +552,11 @@ export default class VCWizardPlugin extends Plugin{
         const plugin_path = scriptPath_AI
         new Notice("Started indexing the full vault!")
         for(let file of files){
-            if (file.path.includes('Test Folder')){  
+            if (file.path.includes('Permanent Notes')){  
                 file_paths[file.basename] = {'change_type': FileType.new,'full_path': vault_path + file.path}
             }
         }
+        console.log(`Files length: ${file_paths.length}`)
         const json_path = plugin_path + '/' + 'file_paths.json'
         save_json(json_path, file_paths)
         try{

@@ -33,7 +33,7 @@ def extract_note_title(full_path):
     sections = full_path.split('/')
     filename = sections[-1]
     #to remove extension
-    title = filename.split('.')[0]
+    title = filename.split('.md')[0]
     return title
 
 def remove_links_2(note: str):
@@ -181,10 +181,51 @@ def load_json(filename: str):
             my_dict = json.load(f)
     return my_dict
 
+def find_document_by_name(database: DocumentArray, note_to_find: str):
+    counter = 0
+    #instances_found = []
+    with database:
+        while counter <= len(database):
+            try:
+                #for i, old_note in enumerate(database):
+                old_note = database[counter]
+                if note_to_find == old_note.text:
+                    #instances_found.append((old_note, counter))
+                    #database.remove(old_note)
+                    #database.__delitem__(counter)
+                    return old_note, counter
+                counter+=1
+            except Exception as e:
+                print(e)
+                counter+= 1
+    
+    return None, None
 
+def remove_old_note(database: DocumentArray, modified_note):
+    modified_note_text = modified_note.text
+    #modified_note_text = 'the book \'Brave New World\' by Aldous Huxley.'
+    old_note, counter = fast_find_document_by_name(database, modified_note_text)
+    if old_note:
+        with database:
+            database.remove(old_note)
+            database.__delitem__(counter)
+            #old_note.chunks.clear()
+    
 def load_bm25_index (filepath:str):
     bm25_index = load_json(filepath)
     return bm25_index
+
+def fast_find_document_by_name(database: DocumentArray, modified_note: str):
+    note_names = database.texts
+    try:
+        counter = note_names.index(modified_note)
+        old_note = database[counter]
+        return old_note, counter
+    except ValueError:
+        # If document is not found
+        return None, None
+
+
 
 
 def add_highlight(path: str):
@@ -208,26 +249,6 @@ def add_highlight(path: str):
                 if note != '':
                     notes_list_processed.append(note)        
         return notes_list_processed, highlight , highlight_readwise
-
-    '''with open(path) as f:
-        lines = f.readlines()
-
-        highlight = ''
-        tags = []
-        note = ''
-        for line in lines:
-            if re.match('^# (.+)', line):
-                highlight = re.findall('# (.+)', line)
-                #print(highlight)
-                highlight = highlight[0]
-            
-            elif re.match('Tags:', line):
-                # After the [[ match everything that is not ] 
-                tags = re.findall('\[\[([^\]]*)',line)
-                #print(tags)
-            elif (re.match('Type: #Concept', line) or re.match('Status: #MOC', line)):
-                return None, None'''
-            
 
     with open(path) as f:
         text = f.read()
