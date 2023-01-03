@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, Menu, MenuItem, MarkdownFileInfo, TFile} from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, Menu, MenuItem, MarkdownFileInfo, TFile, TAbstractFile} from 'obsidian';
 import { WizardView, WIZARD_VIEW } from 'view';
 import * as fs from 'fs';
 
@@ -56,6 +56,7 @@ async function launch_python(pythonPath: string, scriptPath: string, scriptName:
     return result
 
 }
+
 
 async function summarize_vc_text(text: string){
     /**
@@ -268,7 +269,7 @@ function is_summarizable(file_content: string){
 
 }
 
-function save_json(file_path: string, content: string []){
+function save_json(file_path: string, content: any){
     const jsonString = JSON.stringify(content)
     fs.writeFile(file_path, jsonString, (err) => {
         if (err) {
@@ -277,6 +278,35 @@ function save_json(file_path: string, content: string []){
         }
         console.log('File has been created');
       });
+}
+
+function append_to_json(file_path: string, key: any, value:any){
+    fs.readFile(file_path, (err, data: any) => {
+        if(err) {
+            
+            throw err;
+        }
+
+        let oldData 
+        try{
+           oldData = JSON.parse(data)
+        }
+        catch (e){
+                // If the file is empty, data will be an empty string,
+                // which will cause JSON.parse() to throw an error.
+                // In this case, we set oldData to an empty object.
+                oldData = {}
+        }
+        oldData[key] = value //{'change_type': FileType.modified, 'full_path': file_path} 
+        const updatedJson = JSON.stringify(oldData)
+        fs.writeFile(file_path, updatedJson, (err) => {
+            if (err) throw err;
+            console.log('Data appended to file')
+        })
+
+
+    });
+
 }
 
 interface ButlerSettings {
@@ -301,6 +331,12 @@ const DEFAULT_SETTINGS: ButlerSettings = {
 
 }
 
+enum FileType {
+    modified = 'modified',
+    deleted = 'deleted',
+    new = 'new'
+}
+
 export default class VCWizardPlugin extends Plugin{
     settings: ButlerSettings;
     status: HTMLElement;
@@ -314,11 +350,17 @@ export default class VCWizardPlugin extends Plugin{
 			this.updateView([]);
 		});
 
+        this.registerEvent(this.app.vault.on('modify', (file) => this.register_file_change(file, FileType.modified)))
+
+        this.registerEvent(this.app.vault.on('delete', (file) => this.register_file_change(file, FileType.deleted)))
+
         this.addRibbonIcon('sun', 'Omar Plugin', create_notice)
             
         this.addCommand({id: 'summarize-startup-command', name: 'Summarize This Startup', editorCallback: (editor, view) => summarize_selected_startup_text(editor, view)})
         
         this.addCommand({id: 'index-vault', name: 'Index Vault', callback: () => this.index_vault()})
+
+        this.addCommand({id: 'index-changed-files', name: 'Index Changed Files Only', callback: () => this.index_new_and_modified_files()})
 
         this.addCommand({id: 'find-similar-ideas', name: 'Find Similar Ideas', editorCallback: (editor, view) => this.find_similar_ideas(editor, view)})
     
@@ -413,7 +455,7 @@ export default class VCWizardPlugin extends Plugin{
     }
     async find_similar_ideas(editor: Editor, view: MarkdownView|MarkdownFileInfo){
         const sel = editor.getSelection()
-        new Notice("Search in progres...")
+        new Notice("Search in progress...")
         let scriptPath = scriptPath_AI
         const scriptName = 'similar_ideas.py'
         var args = [sel, openaiAPIKey, this.settings.vaultPath]
@@ -430,40 +472,120 @@ export default class VCWizardPlugin extends Plugin{
     
     
     }
-    async index_vault(){
-        let files = this.app.vault.getMarkdownFiles()
+
+    async register_file_change(file: TAbstractFile, type:FileType){
         let scriptPath = scriptPath_AI
         const scriptName = 'index_vault.py'
         const plugin_path = scriptPath_AI
-        let file_paths = []
+        let base_name = file.name.split('.')[0]
+        if (type = FileType.modified){
+            
+            new Notice(`${base_name} has been modified`)
+            let scriptPath = scriptPath_AI
+            const scriptName = 'index_vault.py'
+            const plugin_path = scriptPath_AI
+            let file_path = this.settings.vaultPath + file.path
+            //new Notice(`${file_path}`)
+            let storage_path = plugin_path + '/modified_paths.json'
+            //let modified_path = {base_name: {'change_type': FileType.modified, 'full_path': file_path}  }
+            //console.log(modified_path)
+            //const jsonData = JSON.stringify(modified_path)
+            let value = {'change_type': FileType.modified, 'full_path': file_path} 
+            append_to_json(storage_path, base_name, value)
+        }
+        else if (type == FileType.deleted){
+
+            new Notice(`${base_name} has been deleted`)
+
+        }
+
+
+    }
+    async index_new_and_modified_files(){
+        const plugin_path = scriptPath_AI
+        let storage_path = plugin_path + '/modified_paths.json'
+        fs.readFile(storage_path, async (err, data: any) => {
+            if(err) {
+            
+                throw err;
+            }
+    
+            let files_to_modify 
+            new Notice("Will read changed files now..")
+            try{
+               files_to_modify = JSON.parse(data)
+               console.log(files_to_modify)
+            }
+            catch (e){
+                    new Notice("No new notes to index")
+                    return;
+            }
+            if (Object.keys(files_to_modify).length < 1){
+                new Notice("No new notes to index")
+                return;
+
+            }
+            
+            try{
+                await this.index_files(storage_path)
+            }
+            catch (e){
+                new Notice("There was an error while indexing!")
+                return;
+            }
+            //Empty the modified file
+            new Notice("Finished indexing!")
+            //console.log(storage_path)
+            save_json(storage_path, {})
+
+        })
+    
+    }
+
+    async index_vault(){
+        let files = this.app.vault.getMarkdownFiles()
+        let file_paths: any = {}
+        let vault_path = this.settings.vaultPath
+        const plugin_path = scriptPath_AI
+        new Notice("Started indexing the full vault!")
         for(let file of files){
-            if (file.path.includes('Second Brain') || file.path.includes('Readwise')){  //(!file.path.includes('Resources') && !file.path.includes('Resources')){
-                file_paths.push(file.path)
+            if (file.path.includes('Test Folder')){  
+                file_paths[file.basename] = {'change_type': FileType.new,'full_path': vault_path + file.path}
             }
         }
         const json_path = plugin_path + '/' + 'file_paths.json'
         save_json(json_path, file_paths)
- 
+        try{
+            await this.index_files(json_path)
+
+        }
+        catch (e){
+            new Notice("There was an error while indexing!")
+            return;
+        }
+        new Notice("Finished indexing!")
+        save_json(json_path, {})
+
+        
+        
+
+    }
+
+    async index_files(json_path: string){
+        /**
+         * Index all the files who paths is saved in json_path
+         */
+        
+        let scriptPath = scriptPath_AI
+        const scriptName = 'index_vault.py'
+        const plugin_path = scriptPath_AI
         
         var args = [json_path, openaiAPIKey, plugin_path]
 
-        //console.log(file_paths)
-        /*const {spawn} = require("child_process")        
-        const python = spawn(pythonPath, [scriptPath + '/' + scriptName ])
-        const buffers: any[] = [];
-        //When python is sending data
-        python.stdout.on('data', (chunk: any) => buffers.push(chunk))
-        //when python stops sending data
-        python.stdout.on('end', () => {
-            JSON.parse(Buffer.concat(buffers))
-            console.log(buffers)
-        });
 
-        python.stdin.write(JSON.stringify(file_paths));
-        python.stdin.end()*/
-
-        //let results = await launch_python(pythonPath, scriptPath, scriptName, args)
-        //console.log(results)
+        let results = await launch_python(pythonPath, scriptPath, scriptName, args)
+        console.log(results)
+        return results
     }
     async extract_title_and_path(results: string[]){
         

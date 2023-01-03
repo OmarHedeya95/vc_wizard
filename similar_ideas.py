@@ -38,7 +38,7 @@ da = load_dataset(data_path, metric='cosine', n_dim=n_dim, max_connection=max_co
 
 print("dataset loaded")
 
-sentence = text #'The team and I had this typical engineering view that you should build an "amazing" product then go out to the world with a "bang"'
+sentence = text
 
 encoded_sentence = encode_query(key,sentence, n_dim=n_dim)
 

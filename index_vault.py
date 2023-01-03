@@ -21,8 +21,8 @@ data_path = plugin_path + '/vault_index/all_notes/'
 bm25_index_filepath = plugin_path + '/BM25/bm25_index.json'
 backup_path = plugin_path + '/backup'
 
-json_path = '/Users/omar/Library/Mobile Documents/iCloud~md~obsidian/Documents/Roaming Thoughts/.obsidian/plugins/vc_wizard/file_paths.json' #sys.argv[1]
-key =  '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' #sys.argv[2]
+json_path = sys.argv[1]  
+key =  sys.argv[2]
 
 da = load_dataset(data_path, metric='cosine', n_dim=n_dim, max_connection=max_connection, ef_search=ef_search)
 
@@ -86,9 +86,11 @@ def get_highlight_with_embedded_notes(openai_key, highlight, notes_list, n_dim=4
     
     return database
 
-def index_vault(files):
+def index_vault(files: dict):
     print("--Embedding Files--")
-    for file in tqdm(files): #tqdm(files.items())
+    for file_name, value in tqdm(files.items()): #tqdm(files.items())
+        file = value['full_path']
+        is_modified = value['change_type']
         '''if is_modified == "D":
             #If target is just to delete a note from knowledge base
             note_name = extract_note_title(file)
@@ -103,6 +105,7 @@ def index_vault(files):
         try:
             notes_list, highlight, highlight_readwise = add_highlight(file)
         except Exception as e:
+            print(f'Error at: {file}')
             print(e)
             continue
         if notes_list and highlight:
@@ -139,5 +142,6 @@ def index_vault(files):
 files = []
 with open(json_path, 'r') as f:
     files = json.load(f)
+
 
 index_vault(files)
