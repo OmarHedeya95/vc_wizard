@@ -476,7 +476,7 @@ export default class VCWizardPlugin extends Plugin{
         let scriptPath = scriptPath_AI
         const scriptName = 'index_vault.py'
         const plugin_path = scriptPath_AI
-        let base_name = file.name.split('.')[0]
+        let base_name = file.name.split('.md')[0]
         let file_path = this.settings.vaultPath + file.path
         let storage_path = plugin_path + '/modified_paths.json'
         if (type == FileType.modified){
@@ -552,7 +552,7 @@ export default class VCWizardPlugin extends Plugin{
         const plugin_path = scriptPath_AI
         new Notice("Started indexing the full vault!")
         for(let file of files){
-            if (file.path.includes('Permanent Notes')){  
+            if (file.path.includes('Readwise')){  
                 file_paths[file.basename] = {'change_type': FileType.new,'full_path': vault_path + file.path}
             }
         }
