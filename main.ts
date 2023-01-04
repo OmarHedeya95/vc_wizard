@@ -370,11 +370,15 @@ export default class VCWizardPlugin extends Plugin{
         this.addCommand({id: 'affinity-startup', name: 'Push Startups to Affinity', callback: () => push_startups_to_affinity()})
 
         this.addSettingTab(new SampleSettingTab(this.app, this));
+        this.status.setText('🧙: VC Wizard ready')
+        this.status.setAttr('title', 'Wizard is ready')
+
     
     }
 
     onunload() {
         this.app.workspace.detachLeavesOfType(WIZARD_VIEW)
+        this.status.setText('🧙: VC Wizard left')
 
     }
 
@@ -485,7 +489,6 @@ export default class VCWizardPlugin extends Plugin{
             new Notice(`${base_name} has been deleted`)
             let value = {'change_type': FileType.deleted, 'full_path': file_path} 
             append_to_json(storage_path, base_name, value)
-
         }
         //todo no need to track new files since they only count when modified anyways?
         //todo could be useful only, if I make sure not to overwrite 'modified_paths' by modified if new already exists. Then use that to avoid useless search if a new file exist already in our indexed database
@@ -510,16 +513,19 @@ export default class VCWizardPlugin extends Plugin{
     
             let files_to_modify 
             new Notice("Will read changed files now..")
+            this.status.setText('🧙: VC Wizard indexing...')
             try{
                files_to_modify = JSON.parse(data)
                console.log(files_to_modify)
             }
             catch (e){
                     new Notice("No new notes to index")
+                    this.status.setText('🧙: VC Wizard ready')
                     return;
             }
             if (Object.keys(files_to_modify).length < 1){
                 new Notice("No new notes to index")
+                this.status.setText('🧙: VC Wizard ready')
                 return;
 
             }
@@ -529,11 +535,13 @@ export default class VCWizardPlugin extends Plugin{
             }
             catch (e){
                 new Notice("There was an error while indexing!")
+                this.status.setText('🧙: VC Wizard ready')
                 return;
             }
             //Empty the modified file
             new Notice("Finished indexing!")
             //console.log(storage_path)
+            this.status.setText('🧙: VC Wizard ready')
             save_json(storage_path, {})
 
         })
@@ -546,9 +554,11 @@ export default class VCWizardPlugin extends Plugin{
         let vault_path = this.settings.vaultPath
         const plugin_path = scriptPath_AI
         new Notice("Started indexing the full vault!")
-        console.log(files)
+        this.status.setText('🧙: VC Wizard indexing...')
         for(let file of files){
-            file_paths[file.basename] = {'change_type': FileType.new,'full_path': vault_path + file.path}
+            if (file.path.includes('Readwise')){  
+                file_paths[file.basename] = {'change_type': FileType.new,'full_path': vault_path + file.path}
+            }
         }
         console.log(`Files length: ${file_paths.length}`)
         const json_path = plugin_path + '/' + 'file_paths.json'
@@ -562,6 +572,7 @@ export default class VCWizardPlugin extends Plugin{
             return;
         }
         new Notice("Finished indexing!")
+        this.status.setText('🧙: VC Wizard ready')
         save_json(json_path, {})
 
         
@@ -583,6 +594,7 @@ export default class VCWizardPlugin extends Plugin{
 
         let results = await launch_python(pythonPath, scriptPath, scriptName, args)
         console.log(results)
+        this.status.setText('🧙: VC Wizard ready')
         return results
     }
     async extract_title_and_path(results: string[]){

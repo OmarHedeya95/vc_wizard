@@ -205,11 +205,14 @@ def remove_old_note(database: DocumentArray, modified_note):
     modified_note_text = modified_note.text
     #modified_note_text = 'the book \'Brave New World\' by Aldous Huxley.'
     old_note, counter = fast_find_document_by_name(database, modified_note_text)
-    if old_note:
-        with database:
-            database.remove(old_note)
-            database.__delitem__(counter)
-            #old_note.chunks.clear()
+    try:
+        if old_note:
+            with database:
+                database.remove(old_note)
+                database.__delitem__(counter)
+    except Exception as e:
+        print(f'Note: {modified_note_text} might not be fully deleted')
+        print(e)
     
 def load_bm25_index (filepath:str):
     bm25_index = load_json(filepath)
