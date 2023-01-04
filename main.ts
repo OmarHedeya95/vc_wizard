@@ -477,7 +477,6 @@ export default class VCWizardPlugin extends Plugin{
         let storage_path = plugin_path + '/modified_paths.json'
         if (type == FileType.modified){
             
-            new Notice(`${base_name} has been modified`)
             let value = {'change_type': FileType.modified, 'full_path': file_path} 
             append_to_json(storage_path, base_name, value)
         }
