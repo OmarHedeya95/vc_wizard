@@ -22,7 +22,7 @@ data_path = plugin_path + 'vault_index/all_notes'   #obsidian_vault_index_small_
 
 
 def get_similar_sentences(da: DocumentArray, sentence:Document, n_dim, metric='cosine'):
-    sentence.match(da['@c'][...], metric=metric, limit=3, exclude_self=True)
+    sentence.match(da['@c'][...], metric=metric, limit=20, exclude_self=True)
     for match in sentence.matches:
         print(f'{match.text}')
         scores = match.scores['cosine']
