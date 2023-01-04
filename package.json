@@ -1,7 +1,7 @@
 {
 	"name": "vc-wizard-plugin",
-	"version": "v1.0.0",
-	"description": "A plugin that can summarize VC notes and automatically push them to Affinity",
+	"version": "v1.1.0",
+	"description": "A plugin that uses GPT-3 to find connections between ideas, summarize (VC-related) notes and push them to Affinity CRM",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
