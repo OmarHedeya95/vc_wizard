@@ -462,12 +462,16 @@ export default class VCWizardPlugin extends Plugin{
         let scriptPath = scriptPath_AI
         const scriptName = 'similar_ideas.py'
         var args = [sel, openaiAPIKey, this.settings.vaultPath]
+        this.status.setText('🧙 🔎: VC Wizard searching...')
+        this.status.setAttr('title', 'Wizard is searching for similar ideas')
         const similar_ideas = await launch_python(pythonPath, scriptPath, scriptName, args) as string []        
         //console.log(similar_ideas)
         let search_results = await this.extract_title_and_path(similar_ideas)
         //console.log('Search results:\n')
         //console.log(search_results)
         this.updateView(search_results)
+        this.status.setText('🧙: VC Wizard ready')
+        this.status.setAttr('title', 'Wizard is ready')
     
     
     }
