@@ -10,6 +10,7 @@ I will use conda here. Follow the following steps in the terminal (first cd to t
 - `conda env create -f ./environment.yml`
 - `conda activate <env-name>``
 - `which python` -> copy the path and paste it into the correct setting of the plugin
+- To use the idea similarity function, you need the AdvancedURI Plugin installed
 ## Settings
 - The Affinity settings are only needed if you are using Affinity as CRM and would like to automatically push startups there. If you are just using it for summarization and cleaning it from markdown syntax, just fill the other settings
 - Do not forget to have a '/' at the end of the vault path (otherwise it won't work)
