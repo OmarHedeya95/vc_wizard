@@ -514,6 +514,7 @@ export default class VCWizardPlugin extends Plugin{
             let files_to_modify 
             new Notice("Will read changed files now..")
             this.status.setText('🧙: VC Wizard indexing...')
+            this.status.setAttr('title', 'Wizard is indexing your vault...')
             try{
                files_to_modify = JSON.parse(data)
                console.log(files_to_modify)
@@ -521,11 +522,13 @@ export default class VCWizardPlugin extends Plugin{
             catch (e){
                     new Notice("No new notes to index")
                     this.status.setText('🧙: VC Wizard ready')
+                    this.status.setAttr('title', 'VC Wizard is ready')
                     return;
             }
             if (Object.keys(files_to_modify).length < 1){
                 new Notice("No new notes to index")
                 this.status.setText('🧙: VC Wizard ready')
+                this.status.setAttr('title', 'VC Wizard is ready')
                 return;
 
             }
@@ -536,12 +539,14 @@ export default class VCWizardPlugin extends Plugin{
             catch (e){
                 new Notice("There was an error while indexing!")
                 this.status.setText('🧙: VC Wizard ready')
+                this.status.setAttr('title', 'VC Wizard is ready')
                 return;
             }
             //Empty the modified file
             new Notice("Finished indexing!")
             //console.log(storage_path)
             this.status.setText('🧙: VC Wizard ready')
+            this.status.setAttr('title', 'VC Wizard is ready')
             save_json(storage_path, {})
 
         })
@@ -555,6 +560,7 @@ export default class VCWizardPlugin extends Plugin{
         const plugin_path = scriptPath_AI
         new Notice("Started indexing the full vault!")
         this.status.setText('🧙: VC Wizard indexing...')
+        this.status.setAttr('title', 'Wizard is indexing your vault...')
         for(let file of files){
             if (file.path.includes('Readwise')){  
                 file_paths[file.basename] = {'change_type': FileType.new,'full_path': vault_path + file.path}
@@ -573,6 +579,7 @@ export default class VCWizardPlugin extends Plugin{
         }
         new Notice("Finished indexing!")
         this.status.setText('🧙: VC Wizard ready')
+        this.status.setAttr('title', 'VC Wizard is ready')
         save_json(json_path, {})
 
         
@@ -595,6 +602,7 @@ export default class VCWizardPlugin extends Plugin{
         let results = await launch_python(pythonPath, scriptPath, scriptName, args)
         console.log(results)
         this.status.setText('🧙: VC Wizard ready')
+        this.status.setAttr('title', 'VC Wizard is ready')
         return results
     }
     async extract_title_and_path(results: string[]){
