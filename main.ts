@@ -359,7 +359,7 @@ export default class VCWizardPlugin extends Plugin{
         
         this.addCommand({id: 'index-vault', name: 'Index Vault', callback: () => this.index_vault()})
 
-        this.addCommand({id: 'index-changed-files', name: 'Index Changed Files Only', callback: () => this.index_new_and_modified_files()})
+        this.addCommand({id: 'index-changed-files', name: 'Reindex New/Changed Files Only', callback: () => this.index_new_and_modified_files()})
 
         this.addCommand({id: 'find-similar-ideas', name: 'Find Similar Ideas', editorCallback: (editor, view) => this.find_similar_ideas(editor, view)})
     
