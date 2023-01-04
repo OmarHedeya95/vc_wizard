@@ -5,6 +5,7 @@ export const WIZARD_VIEW = "wizard-view";
 export class WizardView extends ItemView {
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
+    this.icon = 'sun'
   }
 
   getViewType() {
@@ -18,14 +19,14 @@ export class WizardView extends ItemView {
   async onOpen() {
     const container = this.containerEl.children[1];
     container.empty();
-    container.createEl("h4", { text: "Example view" });
+    container.createEl("h4", {text: "Related Ideas", cls: "heading"});
   }
 
   async update(search_results: any){ //
     const container = this.containerEl.children[1];
     //container.createEl("div", {text: "Hello World"})
     container.empty()
-    const outerDiv = container.createEl("h4", {text: "Results\n"});
+    const outerDiv = container.createEl("h4", {text: "Related Ideas\n", cls: "heading"});
     
     for (const key in search_results){
 
