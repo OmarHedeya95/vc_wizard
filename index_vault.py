@@ -14,17 +14,19 @@ ef_construction = 200
 #
 #vault_path = sys.argv[3]
 
-vault_path = '/Users/omar/Library/Mobile Documents/iCloud~md~obsidian/Documents/Roaming Thoughts/'
+#vault_path = '/Users/omar/Library/Mobile Documents/iCloud~md~obsidian/Documents/Roaming Thoughts/'
+#plugin_path = vault_path + '.obsidian/plugins/vc_wizard'
 
-plugin_path = vault_path + '.obsidian/plugins/vc_wizard'
-data_path = plugin_path + '/vault_index/all_notes/'
-bm25_index_filepath = plugin_path + '/BM25/bm25_index.json'
-backup_path = plugin_path + '/backup'
 
 #--------------
 json_path = sys.argv[1]
 key =  sys.argv[2]
+plugin_path = sys.argv[3]
 #------------------
+
+data_path = plugin_path + '/vault_index/all_notes/'
+bm25_index_filepath = plugin_path + '/BM25/bm25_index.json'
+backup_path = plugin_path + '/backup'
 
 da = load_dataset(data_path, metric='cosine', n_dim=n_dim, max_connection=max_connection, ef_search=ef_search)
 
@@ -92,6 +94,7 @@ def index_vault(files: dict):
     print("--Embedding Files--")
     counter = 0
     for file_name, value in tqdm(files.items()): #tqdm(files.items())
+        embedded_note = None
         file = value['full_path']
         is_modified = value['change_type']
         if is_modified == "deleted":
@@ -149,27 +152,24 @@ def index_vault(files: dict):
             #If this is just a modified note, remove old one from database
             #remove_old_note(da, embedded_note)
 
-        
-        print(f"Encoded file: {embedded_note.text}")
-        with da:
-            #Always check that there is no duplicate in database
-            if da and len(da) > 0:
-                remove_old_note(da, embedded_note)
-            da.append(embedded_note)
-        
-        if counter % 20 == 0 and counter!= 0:
-            #checkpoint reached
-            save_json(bm25_index_filepath, bm25_index)
-        
-        counter+=1
+        if(embedded_note):
+            print(f"Encoded file: {embedded_note.text}")
+            with da:
+                #Always check that there is no duplicate in database
+                if da and len(da) > 0:
+                    remove_old_note(da, embedded_note)
+                da.append(embedded_note)
+            
+            if counter % 20 == 0 and counter!= 0:
+                #checkpoint reached
+                save_json(bm25_index_filepath, bm25_index)
+            
+            counter+=1
         
     
     if files:
         print('Some changes happened in the vault since last index')
         save_json(bm25_index_filepath, bm25_index)
-        with da:
-            da.save(backup_path + '/backup.db')
-    
     return da
 
 
@@ -178,42 +178,3 @@ with open(json_path, 'r') as f:
     files = json.load(f)
 
 index_vault(files)
-
-'''print('Documents length: ' + str(len(da)))
-unique_notes = set(da.texts)
-all_notes = da.texts
-print('Number of non-unique documents: ' + str(len(all_notes) - len(unique_notes)))'''
-
-'''duplicates = {}
-for note in unique_notes:
-    duplicates[note] = []
-
-for document in da:
-    if document.text in unique_notes:
-        duplicates[document.text].append(document.id)
-
-multiple = {}
-for duplicate_note, ids in duplicates.items():
-    if len(ids) > 1:
-        multiple[duplicate_note] = ids
-
-print(multiple)
-with open('hola.json', 'w') as f:
-    json.dump(multiple, f)'''
-
-# Delete duplicates
-'''with open('/Users/omar/Library/Mobile Documents/iCloud~md~obsidian/Documents/Roaming Thoughts/.obsidian/plugins/vc_wizard/hola.json', 'r') as f:
-    duplicates = json.load(f)
-    print(type(duplicates))
-    print(len(duplicates))
-    notes = dict(duplicates).keys()
-    print(len(notes))
-    for duplicate, ids in dict(duplicates).items():
-        print(f'Removing: {duplicate}')
-        remove_old_note(da, Document(text=duplicate))'''
-
-
-
-
-
-

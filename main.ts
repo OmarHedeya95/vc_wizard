@@ -546,10 +546,9 @@ export default class VCWizardPlugin extends Plugin{
         let vault_path = this.settings.vaultPath
         const plugin_path = scriptPath_AI
         new Notice("Started indexing the full vault!")
+        console.log(files)
         for(let file of files){
-            if (file.path.includes('Readwise')){  
-                file_paths[file.basename] = {'change_type': FileType.new,'full_path': vault_path + file.path}
-            }
+            file_paths[file.basename] = {'change_type': FileType.new,'full_path': vault_path + file.path}
         }
         console.log(`Files length: ${file_paths.length}`)
         const json_path = plugin_path + '/' + 'file_paths.json'
