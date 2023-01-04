@@ -24,6 +24,8 @@ async function summarize_selected_startup_text(editor: Editor, view: MarkdownVie
     const scriptName = 'startup_summarizer_helper.py'
     var args = [sel, openaiAPIKey]
     new Notice("Summarizing...")
+    this.status.setText('🧙: VC Wizard summarizing...')
+    this.status.setAttr('title', 'Wizard is summarizing...')
     //We declare get_selected_text as a function that "WAITS" (async), and we wait for the result here
     const summary = await launch_python(pythonPath, scriptPath, scriptName, args)
 
@@ -34,6 +36,8 @@ async function summarize_selected_startup_text(editor: Editor, view: MarkdownVie
 
     const replacement = '#gpt_summarized, #review_startup \n'+ new_summary + '\n' + '# Stop Indexing \n## Notes\n' + sel
     editor.replaceSelection(replacement)
+    this.status.setText('🧙: VC Wizard ready')
+    this.status.setAttr('title', 'Wizard is ready')
 
 }
 
@@ -206,6 +210,8 @@ async function push_vcs_to_affinity(){
      * This function pushes all ready VCs to affinity, it also notifies us if a person can not be found on affinity
      */
     const files = this.app.vault.getMarkdownFiles()
+    this.status.setText('🧙: VC Wizard syncing with Affinity...')
+    this.status.setAttr('title', 'Wizard is pushing VCs info to Affinity...')
     for (let item of files){
         let file_content = await this.app.vault.read(item)
         if (vc_ready_for_affinity(file_content)){
@@ -227,6 +233,8 @@ async function push_vcs_to_affinity(){
         }
 
     }
+    this.status.setText('🧙: VC Wizard ready')
+    this.status.setAttr('title', 'Wizard is ready')
 
 }
 
@@ -236,6 +244,8 @@ async function push_startups_to_affinity(){
      * Push all eligible startups to affinity (notify me otherwise)
      */
     const files = this.app.vault.getMarkdownFiles()
+    this.status.setText('🧙: VC Wizard syncing with Affinity...')
+    this.status.setAttr('title', 'Wizard is pushing startup info to Affinity...')
     for (let item of files){
         let file_content = await this.app.vault.read(item)
         if (startup_ready_for_affinity(file_content)){
@@ -259,6 +269,8 @@ async function push_startups_to_affinity(){
 
     }
     new Notice('Done!')
+    this.status.setText('🧙: VC Wizard ready')
+    this.status.setAttr('title', 'Wizard is ready')
 }
 
 function is_summarizable(file_content: string){
@@ -379,6 +391,7 @@ export default class VCWizardPlugin extends Plugin{
     onunload() {
         this.app.workspace.detachLeavesOfType(WIZARD_VIEW)
         this.status.setText('🧙: VC Wizard left')
+        this.status.setAttr('title', 'Wizard says 👋')
 
     }
 
@@ -430,6 +443,8 @@ export default class VCWizardPlugin extends Plugin{
          */
 
         const files = this.app.vault.getMarkdownFiles()
+        this.status.setText('🧙: VC Wizard summarizing...')
+        this.status.setAttr('title', 'Wizard is summarizing all your VC connections...')
         for (let item of files){
             //console.log(item.name)
             let file_content = await this.app.vault.read(item)
@@ -449,6 +464,9 @@ export default class VCWizardPlugin extends Plugin{
             }
             
         }
+
+        this.status.setText('🧙: VC Wizard ready')
+        this.status.setAttr('title', 'Wizard is ready')
         
 
         //vault.
