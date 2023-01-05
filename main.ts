@@ -12,7 +12,7 @@ let venture_network_list = '500'
 
 
 
-async function summarize_selected_startup_text(editor: Editor, view: MarkdownView|MarkdownFileInfo){
+async function summarize_selected_startup_text(editor: Editor, view: MarkdownView|MarkdownFileInfo, status: HTMLElement){
     /**
      * This function takes the selected text from a startup, summarizes it, and then puts it back in the file
      * The "full-text" gets appened after the heading '# Stop Indexing' such that it is not indexed anymore by the embedding engine
@@ -24,8 +24,8 @@ async function summarize_selected_startup_text(editor: Editor, view: MarkdownVie
     const scriptName = 'startup_summarizer_helper.py'
     var args = [sel, openaiAPIKey]
     new Notice("Summarizing...")
-    this.status.setText('🧙: VC Wizard summarizing...')
-    this.status.setAttr('title', 'Wizard is summarizing...')
+    status.setText('🧙: VC Wizard summarizing...')
+    status.setAttr('title', 'Wizard is summarizing...')
     //We declare get_selected_text as a function that "WAITS" (async), and we wait for the result here
     const summary = await launch_python(pythonPath, scriptPath, scriptName, args)
 
@@ -36,8 +36,8 @@ async function summarize_selected_startup_text(editor: Editor, view: MarkdownVie
 
     const replacement = '#gpt_summarized, #review_startup \n'+ new_summary + '\n' + '# Stop Indexing \n## Notes\n' + sel
     editor.replaceSelection(replacement)
-    this.status.setText('🧙: VC Wizard ready')
-    this.status.setAttr('title', 'Wizard is ready')
+    status.setText('🧙: VC Wizard ready')
+    status.setAttr('title', 'Wizard is ready')
 
 }
 
@@ -72,7 +72,17 @@ async function summarize_vc_text(text: string){
 
     // We should summarize only information that is before '# Stop Indexing'
     let [title, substrings] = extract_title_and_note(text)
-    let text_to_summarize = substrings[0] + '\n' + substrings[1]
+    //We consider both data before the title (hashtags) as well as the body of the note
+    
+    let hashtags
+    try{
+       hashtags = substrings[0].split('Tags:')[1]
+    }
+    catch{
+        hashtags = substrings[0]
+        new Notice(`${title}: Does not have any guiding hashtags, this could help the summarizer understand the VC better`, 3600)
+    }
+    let text_to_summarize = hashtags + '\n' + substrings[1]
 
     console.log(`Summarizing: ${title}`)
     //console.log("Text to summarize: ")
@@ -90,7 +100,7 @@ async function summarize_vc_text(text: string){
     title = title.toString()
     let leading_text = ''
     let replacement = ''
-    let tailing_text = ''
+    let tailing_text = hashtags
 
     /*console.log(`Title: ${title}`)
     console.log(`Before the title:\n${substrings[0]}`)
@@ -177,6 +187,14 @@ function startup_ready_for_affinity(file_content: string){
     return (file_content.includes('#startups/screened') && file_content.includes('#Affinity'))
 }
 
+function is_startup_ready_for_training(file_content: string){
+    return (file_content.includes('#startups/screened') && file_content.includes('#gpt_summarized') && !file_content.includes('#review_startup') && !file_content.includes('#saved'))
+}
+
+function is_vc_ready_for_training(file_content: string){
+    return (file_content.includes('#network/connected') && file_content.includes('#gpt_summarized') && !file_content.includes('#review') && !file_content.includes('#saved'))
+}
+
 function notify_for_missing_people(person_name: string, response: any){
     /**
      * If a person is not found in affinity, send a notification and return false
@@ -205,13 +223,13 @@ function notify_for_missing_startups(startup_name: string, response: any){
     return false
 }
 
-async function push_vcs_to_affinity(){
+async function push_vcs_to_affinity(status: HTMLElement){
     /**
      * This function pushes all ready VCs to affinity, it also notifies us if a person can not be found on affinity
      */
     const files = this.app.vault.getMarkdownFiles()
-    this.status.setText('🧙: VC Wizard syncing with Affinity...')
-    this.status.setAttr('title', 'Wizard is pushing VCs info to Affinity...')
+    status.setText('🧙: VC Wizard syncing with Affinity...')
+    status.setAttr('title', 'Wizard is pushing VCs info to Affinity...')
     for (let item of files){
         let file_content = await this.app.vault.read(item)
         if (vc_ready_for_affinity(file_content)){
@@ -233,19 +251,19 @@ async function push_vcs_to_affinity(){
         }
 
     }
-    this.status.setText('🧙: VC Wizard ready')
-    this.status.setAttr('title', 'Wizard is ready')
+    status.setText('🧙: VC Wizard ready')
+    status.setAttr('title', 'Wizard is ready')
 
 }
 
 
-async function push_startups_to_affinity(){
+async function push_startups_to_affinity(status: HTMLElement){
     /**
      * Push all eligible startups to affinity (notify me otherwise)
      */
     const files = this.app.vault.getMarkdownFiles()
-    this.status.setText('🧙: VC Wizard syncing with Affinity...')
-    this.status.setAttr('title', 'Wizard is pushing startup info to Affinity...')
+    status.setText('🧙: VC Wizard syncing with Affinity...')
+    status.setAttr('title', 'Wizard is pushing startup info to Affinity...')
     for (let item of files){
         let file_content = await this.app.vault.read(item)
         if (startup_ready_for_affinity(file_content)){
@@ -269,8 +287,8 @@ async function push_startups_to_affinity(){
 
     }
     new Notice('Done!')
-    this.status.setText('🧙: VC Wizard ready')
-    this.status.setAttr('title', 'Wizard is ready')
+    status.setText('🧙: VC Wizard ready')
+    status.setAttr('title', 'Wizard is ready')
 }
 
 function is_summarizable(file_content: string){
@@ -349,6 +367,12 @@ enum FileType {
     new = 'new'
 }
 
+enum SummaryType{
+    vc = 'vc',
+    startup = 'startup'
+}
+
+
 export default class VCWizardPlugin extends Plugin{
     settings: ButlerSettings;
     status: HTMLElement;
@@ -367,7 +391,7 @@ export default class VCWizardPlugin extends Plugin{
         this.registerEvent(this.app.vault.on('delete', (file) => this.register_file_change(file, FileType.deleted)))
         this.addRibbonIcon('sun', 'Omar Plugin', create_notice)
             
-        this.addCommand({id: 'summarize-startup-command', name: 'Summarize This Startup', editorCallback: (editor, view) => summarize_selected_startup_text(editor, view)})
+        this.addCommand({id: 'summarize-startup-command', name: 'Summarize This Startup', editorCallback: (editor, view) => summarize_selected_startup_text(editor, view, this.status)})
         
         this.addCommand({id: 'index-vault', name: 'Index Vault', callback: () => this.index_vault()})
 
@@ -377,9 +401,12 @@ export default class VCWizardPlugin extends Plugin{
     
         this.addCommand({id: 'summarize-all-vc-command', name: 'Summarize All VC Notes', callback: () => this.summarize_all_vc()})
 
-        this.addCommand({id: 'affinity-vc', name: 'Push VCs to Affinity', callback: () => push_vcs_to_affinity()})
+        this.addCommand({id: 'affinity-vc', name: 'Push VCs to Affinity', callback: () => push_vcs_to_affinity(this.status)})
 
-        this.addCommand({id: 'affinity-startup', name: 'Push Startups to Affinity', callback: () => push_startups_to_affinity()})
+        this.addCommand({id: 'affinity-startup', name: 'Push Startups to Affinity', callback: () => push_startups_to_affinity(this.status)})
+
+        this.addCommand({id: 'save-startup-summary', name: 'Training: Save All Startup Summaries', callback: () => this.save_all_approved_summaries(SummaryType.startup)})
+        this.addCommand({id: 'save-vc-summary', name: 'Training: Save All VCs Summaries', callback: () => this.save_all_approved_summaries(SummaryType.vc)})
 
         this.addSettingTab(new SampleSettingTab(this.app, this));
         this.status.setText('🧙: VC Wizard ready')
@@ -435,6 +462,107 @@ export default class VCWizardPlugin extends Plugin{
         connection_owner_field = this.settings.connection_owner_field_id
         venture_network_list = this.settings.venture_network_list_id
         pythonPath = this.settings.pythonPath
+    }
+
+    async get_prompt_and_completion(file_content: any){
+        let [title, substrings] = extract_title_and_note(file_content)
+        let startup_name = String(title)
+        let note = substrings[1]
+        let full_text: any = ''
+        let first_call_notes: any
+        try{
+            full_text = substrings.slice(2)
+
+        }
+        catch{
+            console.log(`For ${startup_name}, I could not find the text that lead to the summary`)
+            new Notice(`For ${startup_name}, I could not find the text that lead to the summary`)
+            return [null, null, null]
+        }
+        try{
+            //console.log('Full text:\n')
+            //console.log(full_text)
+            let pattern = /^## .*\n/gm;
+            let substrings_2 = full_text[0].split(pattern)
+            first_call_notes = substrings_2[1]
+            if (first_call_notes.length < 1){
+                //If there are no notes that got caught
+                throw "Error"
+            }
+        }
+        catch{
+            console.log(`${startup_name}: Does not have ##Notes underneath #StopIndexing`)
+            new Notice(`${startup_name}, Does not have ##Notes underneath #StopIndexing`)
+            return [null, null, null]
+        }
+        return [first_call_notes, note, title]
+
+    }
+
+    async append_training_data_to_jsonl(training_path: string, prompt: string, completion: string){
+        /**
+         * Appends a dictionary type file 
+         */
+        const training_example = {'prompt': prompt, 'completion': completion} 
+        const json = JSON.stringify(training_example)
+        fs.appendFileSync(training_path, json + '\n')
+
+    }
+
+    async mark_file_as_saved(file_content: any){
+        let index = file_content.indexOf('#gpt_summarized')
+        if (index && index!=-1){
+            let len = '#gpt_summarized'.length
+            let new_string = ', #saved'
+            file_content = file_content.substring(0, index+len) + new_string + file_content.substring(index+len)
+        }
+        return file_content
+
+
+    }
+
+
+    async save_all_approved_summaries(summary_type: SummaryType){
+        const files = this.app.vault.getMarkdownFiles()
+        this.status.setText('🧙: VC Wizard saving startup summaries')
+        this.status.setAttr('title', 'Wizard is saving data to improve')
+        let judge_function
+        let training_extension
+        if (summary_type == SummaryType.startup)
+        {
+            judge_function = is_startup_ready_for_training
+            training_extension = '/training_data/startup_summary_training/startup_summary_training.jsonl'
+
+        }
+        else if (summary_type == SummaryType.vc){
+            judge_function = is_vc_ready_for_training
+            training_extension = '/training_data/vc_summary_training/vc_summary_training.jsonl'
+        }
+        else{
+            new Notice("Error: Wrong type of summary selected")
+            throw Error("Wrong type of summary selected")     
+        }
+            
+        for (let item of files){
+            let file_content = await this.app.vault.read(item)
+            if (judge_function(file_content)){
+
+                let [first_call_notes, note, title] = await this.get_prompt_and_completion(file_content)
+                
+                if (first_call_notes && note && title){
+                    
+                    const plugin_path = scriptPath_AI
+                    const training_path = plugin_path + training_extension
+                    await this.append_training_data_to_jsonl(training_path, first_call_notes, note)
+                    file_content = await this.mark_file_as_saved(file_content)
+                    this.app.vault.modify(item, file_content)
+                    new Notice(`${title} has been saved`)
+    
+
+                }
+
+            }
+        }
     }
 
     async summarize_all_vc(){

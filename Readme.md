@@ -60,4 +60,8 @@ I will use conda here. Follow the following steps in the terminal (first cd to t
 
 # Tips & Tricks
 - After creating the summary, a header called (# Stop Indexing) is automatically added. This stops the code from reading further. If you wish to include more of your detailed notes into the note that gets pushed to affinity, simply add them before the (# Stop Indexing) header.
+- You can save the successful summaries for VCs and startups to fine-tune your own model later (would need some editing to the code though on the python side).
+  - After summarization you get the headers (# Stop Indexing) followed by (## Notes). When you choose to save all VCs(or startups) summaries, the prompt is assumed everything after the first (## <header>) after # Stop Indexing (usually the text after ## Notes) and it stops the "prompt" at the first h1 or h2 header it comes across. Adjust your notes accordingly to save trainig examples
+  - Training examples are saved under '/training_data' folder
+
 
