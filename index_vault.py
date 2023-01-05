@@ -8,30 +8,22 @@ n_dim = 1536
 ef_search = 50
 max_connection = 16
 ef_construction = 200
-
-
-#files = sys.argv[1]   #json.loads(sys.argv[1])#sys.argv[1]
-#
-#vault_path = sys.argv[3]
-
-#vault_path = '/Users/omar/Library/Mobile Documents/iCloud~md~obsidian/Documents/Roaming Thoughts/'
-#plugin_path = vault_path + '.obsidian/plugins/vc_wizard'
-
-
 #--------------
 json_path = sys.argv[1]
 key =  sys.argv[2]
 plugin_path = sys.argv[3]
 #------------------
-
 data_path = plugin_path + '/vault_index/all_notes/'
 bm25_index_filepath = plugin_path + '/BM25/bm25_index.json'
 backup_path = plugin_path + '/backup'
 
 da = load_dataset(data_path, metric='cosine', n_dim=n_dim, max_connection=max_connection, ef_search=ef_search)
 
-
 bm25_index = load_bm25_index(bm25_index_filepath)
+
+# If you want to backup your index to Jina Cloud, set this bool to true
+# todo get the user decision through the settings in Obsidian
+push_to_jina = False
 
 
 def average_chunks_embedding(total_note: Document, factor:int):
@@ -93,6 +85,7 @@ def get_highlight_with_embedded_notes(openai_key, highlight, notes_list, n_dim=4
 def index_vault(files: dict):
     print("--Embedding Files--")
     counter = 0
+    count_added_files = 0
     for file_name, value in tqdm(files.items()): #tqdm(files.items())
         embedded_note = None
         file = value['full_path']
@@ -152,13 +145,15 @@ def index_vault(files: dict):
             #If this is just a modified note, remove old one from database
             #remove_old_note(da, embedded_note)
 
-        if(embedded_note):
+
+        if(embedded_note):        
             print(f"Encoded file: {embedded_note.text}")
             with da:
                 #Always check that there is no duplicate in database
                 if da and len(da) > 0:
                     remove_old_note(da, embedded_note)
                 da.append(embedded_note)
+                count_added_files+= 1
             
             if counter % 20 == 0 and counter!= 0:
                 #checkpoint reached
@@ -170,6 +165,12 @@ def index_vault(files: dict):
     if files:
         print('Some changes happened in the vault since last index')
         save_json(bm25_index_filepath, bm25_index)
+        if count_added_files > 20 and push_to_jina:
+            #If this is a major update to the database, create backup
+            with da:
+                #da.save_json(backup_path + '/backup.json')
+                da.push('notes_all_update', show_progress=True)
+    
     return da
 
 
