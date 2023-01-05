@@ -80,9 +80,16 @@ def add_notes_to_company(company, notes, affinity_auth):
 def get_startup_by_name(owner_person_value: int, startup_name: str, affinity_auth):
     # Returns a startup with the given name if I had an interaction with it
     next_token = None
+    #Hanlding special case that startup name contains spaces in between
+    subnames = startup_name.split(' ')
+    search_term = subnames[0]
+    if len(subnames) > 1:
+        for name in subnames[1:]:
+            search_term = search_term + '+' + name
+    print(search_term)
     while True:
         r = requests.get(url_affinity_organizations, auth=affinity_auth,
-                        headers=headers, params={"term": startup_name, 'with_interaction_dates': True, 'with_interaction_persons': True, 'page_token': next_token})
+                        headers=headers, params={"term": search_term, 'with_interaction_dates': True, 'with_interaction_persons': True, 'page_token': next_token})
         organizations = r.json()
         for organization in organizations['organizations']:
             for interaction_name, interaction_data in dict(organization['interactions']).items():
