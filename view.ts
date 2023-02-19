@@ -13,8 +13,9 @@ export class WizardView extends ItemView {
   }
 
   getDisplayText() {
-    return "Example view";
+    return "Related Ideas";
   }
+
 
   async onOpen() {
     const container = this.containerEl.children[1];

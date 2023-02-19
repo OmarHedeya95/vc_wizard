@@ -387,7 +387,7 @@ export default class VCWizardPlugin extends Plugin{
 		});
 
         this.registerEvent(this.app.vault.on('modify', (file) => this.register_file_change(file, FileType.modified)))
-
+        this.registerEvent(this.app.vault.on('create', (file) => this.register_file_change(file, FileType.new)))
         this.registerEvent(this.app.vault.on('delete', (file) => this.register_file_change(file, FileType.deleted)))
         this.addRibbonIcon('sun', 'Omar Plugin', create_notice)
             
@@ -640,13 +640,14 @@ export default class VCWizardPlugin extends Plugin{
             let value = {'change_type': FileType.deleted, 'full_path': file_path} 
             append_to_json(storage_path, base_name, value)
         }
-        //todo no need to track new files since they only count when modified anyways?
-        //todo could be useful only, if I make sure not to overwrite 'modified_paths' by modified if new already exists. Then use that to avoid useless search if a new file exist already in our indexed database
-        //todo if I decided for yes, add an eventlistent in onload
+        //We track a new created file only if is from readwise
         else if (type == FileType.new){
-            new Notice(`${base_name} has been created`)
-            let value = {'change_type': FileType.new, 'full_path': file_path}
-            append_to_json(storage_path, base_name, value)
+            console.log(file_path)
+            if (file_path.contains('Readwise')){
+                new Notice(`${base_name} has been created`)
+                let value = {'change_type': FileType.new, 'full_path': file_path}
+                append_to_json(storage_path, base_name, value)
+            }
 
         }
 
